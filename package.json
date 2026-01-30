@@ -1,0 +1,19 @@
+{
+  "name": "layla-dashboard",
+  "version": "1.0.0",
+  "description": "Layla AI Task Dashboard - Real-time task management and monitoring",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["dashboard", "task-management", "ai-assistant"],
+  "author": "Layla",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3",
+    "uuid": "^13.0.0"
+  }
+}

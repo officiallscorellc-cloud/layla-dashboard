@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Layla Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #e4e4e7;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-badge.working {
+      background: rgba(34, 197, 94, 0.15);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .status-badge.idle {
+      background: rgba(113, 113, 122, 0.15);
+      color: #a1a1aa;
+      border: 1px solid rgba(113, 113, 122, 0.3);
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.working {
+      background: #22c55e;
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+    }
+
+    .status-dot.idle {
+      background: #71717a;
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.1); }
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 1200px) {
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(10px);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #a1a1aa;
+    }
+
+    .card-count {
+      background: rgba(168, 85, 247, 0.2);
+      color: #c084fc;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .current-task-card {
+      grid-column: span 2;
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(236, 72, 153, 0.1));
+      border-color: rgba(168, 85, 247, 0.3);
+    }
+
+    @media (max-width: 768px) {
+      .current-task-card { grid-column: span 1; }
+    }
+
+    .current-task {
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+    }
+
+    .current-task h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .current-task p {
+      color: #a1a1aa;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .current-task-meta {
+      display: flex;
+      gap: 16px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .meta-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #71717a;
+    }
+
+    .no-task {
+      text-align: center;
+      padding: 40px;
+      color: #71717a;
+    }
+
+    .no-task-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .task-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .task-list::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.05);
+      border-radius: 3px;
+    }
+
+    .task-list::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2);
+      border-radius: 3px;
+    }
+
+    .task-item {
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      border-left: 3px solid;
+      transition: all 0.2s;
+    }
+
+    .task-item:hover {
+      background: rgba(0, 0, 0, 0.3);
+      transform: translateX(4px);
+    }
+
+    .task-item.urgent { border-color: #ef4444; }
+    .task-item.high { border-color: #f97316; }
+    .task-item.medium { border-color: #eab308; }
+    .task-item.low { border-color: #22c55e; }
+
+    .task-item h4 {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+
+    .task-item p {
+      font-size: 12px;
+      color: #71717a;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .task-item-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+    }
+
+    .priority-badge {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .priority-badge.urgent { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+    .priority-badge.high { background: rgba(249, 115, 22, 0.2); color: #f97316; }
+    .priority-badge.medium { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+    .priority-badge.low { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+
+    .task-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 11px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e4e4e7;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-success {
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+    }
+
+    .btn-success:hover {
+      background: rgba(34, 197, 94, 0.3);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.3);
+    }
+
+    .suggestion-item {
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.2s;
+    }
+
+    .suggestion-item:hover {
+      border-color: rgba(168, 85, 247, 0.3);
+    }
+
+    .suggestion-item h4 {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+
+    .suggestion-item p {
+      font-size: 12px;
+      color: #71717a;
+      margin-bottom: 12px;
+    }
+
+    .completed-item {
+      padding: 12px;
+      background: rgba(34, 197, 94, 0.05);
+      border-radius: 8px;
+      border-left: 3px solid #22c55e;
+    }
+
+    .completed-item h4 {
+      font-size: 13px;
+      font-weight: 500;
+      color: #a1a1aa;
+      text-decoration: line-through;
+    }
+
+    .completed-item .time {
+      font-size: 11px;
+      color: #52525b;
+      margin-top: 4px;
+    }
+
+    .add-task-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .add-task-form input,
+    .add-task-form select,
+    .add-task-form textarea {
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+    }
+
+    .add-task-form input:focus,
+    .add-task-form select:focus,
+    .add-task-form textarea:focus {
+      outline: none;
+      border-color: rgba(168, 85, 247, 0.5);
+    }
+
+    .add-task-form textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .form-row > * {
+      flex: 1;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px;
+      color: #52525b;
+    }
+
+    .checkbox-approve {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: #a855f7;
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .time-ago {
+      font-size: 11px;
+      color: #52525b;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <h1>✨ Layla Dashboard</h1>
+      </div>
+      <div id="status-badge" class="status-badge idle">
+        <div class="status-dot idle"></div>
+        <span>Idle</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Current Task -->
+      <div class="card current-task-card">
+        <div class="card-header">
+          <span class="card-title">🎯 Currently Working On</span>
+          <button id="complete-btn" class="btn btn-success btn-sm" style="display: none;">✓ Complete</button>
+        </div>
+        <div id="current-task-content">
+          <div class="no-task">
+            <div class="no-task-icon">💤</div>
+            <p>No active task</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Add -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">➕ Add Task</span>
+        </div>
+        <form id="add-task-form" class="add-task-form" style="margin-top: 0; padding-top: 0; border: none;">
+          <input type="text" id="task-title" placeholder="Task title..." required>
+          <textarea id="task-desc" placeholder="Description (optional)"></textarea>
+          <div class="form-row">
+            <select id="task-priority">
+              <option value="medium">Medium Priority</option>
+              <option value="urgent">🔥 Urgent</option>
+              <option value="high">High Priority</option>
+              <option value="low">Low Priority</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary">Add to Queue</button>
+        </form>
+      </div>
+
+      <!-- Queue -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📋 Queue</span>
+          <span id="queue-count" class="card-count">0</span>
+        </div>
+        <div id="queue-list" class="task-list">
+          <div class="empty-state">Queue is empty</div>
+        </div>
+      </div>
+
+      <!-- AI Suggestions -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🤖 AI Suggestions</span>
+          <button id="refresh-suggestions" class="btn btn-secondary btn-sm">↻ Refresh</button>
+        </div>
+        <div id="suggestions-list" class="task-list">
+          <div class="empty-state">Loading suggestions...</div>
+        </div>
+      </div>
+
+      <!-- Completed -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">✅ Completed</span>
+          <button id="clear-completed" class="btn btn-secondary btn-sm">Clear</button>
+        </div>
+        <div id="completed-list" class="task-list">
+          <div class="empty-state">No completed tasks yet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    let currentData = null;
+
+    // Time formatting
+    function timeAgo(dateStr) {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diff = Math.floor((now - date) / 1000);
+      
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return `${Math.floor(diff / 86400)}d ago`;
+    }
+
+    // Update UI
+    function updateUI(data) {
+      currentData = data;
+      
+      // Status badge
+      const badge = document.getElementById('status-badge');
+      const dot = badge.querySelector('.status-dot');
+      const text = badge.querySelector('span');
+      
+      badge.className = `status-badge ${data.status}`;
+      dot.className = `status-dot ${data.status}`;
+      text.textContent = data.status === 'working' ? 'Working' : 'Idle';
+
+      // Current task
+      const currentContent = document.getElementById('current-task-content');
+      const completeBtn = document.getElementById('complete-btn');
+      
+      if (data.currentTask) {
+        completeBtn.style.display = 'block';
+        currentContent.innerHTML = `
+          <div class="current-task">
+            <h3>${data.currentTask.title}</h3>
+            <p>${data.currentTask.description || 'No description'}</p>
+            <div class="current-task-meta">
+              <span class="meta-tag">
+                <span class="priority-badge ${data.currentTask.priority}">${data.currentTask.priority}</span>
+              </span>
+              <span class="meta-tag">📍 Source: ${data.currentTask.source}</span>
+              <span class="meta-tag">⏱️ Started: ${timeAgo(data.currentTask.startedAt)}</span>
+            </div>
+          </div>
+        `;
+      } else {
+        completeBtn.style.display = 'none';
+        currentContent.innerHTML = `
+          <div class="no-task">
+            <div class="no-task-icon">💤</div>
+            <p>No active task</p>
+          </div>
+        `;
+      }
+
+      // Queue
+      document.getElementById('queue-count').textContent = data.queue.length;
+      const queueList = document.getElementById('queue-list');
+      
+      if (data.queue.length === 0) {
+        queueList.innerHTML = '<div class="empty-state">Queue is empty</div>';
+      } else {
+        queueList.innerHTML = data.queue.map((task, index) => `
+          <div class="task-item ${task.priority}" data-id="${task.id}">
+            <h4>${index + 1}. ${task.title}</h4>
+            <p>${task.description || 'No description'}</p>
+            <div class="task-item-footer">
+              <span class="priority-badge ${task.priority}">${task.priority}</span>
+              <div class="task-actions">
+                <button class="btn btn-danger btn-sm" onclick="removeFromQueue('${task.id}')">✕</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Suggestions
+      const suggestionsList = document.getElementById('suggestions-list');
+      
+      if (data.suggestions.length === 0) {
+        suggestionsList.innerHTML = '<div class="empty-state">No suggestions available</div>';
+      } else {
+        suggestionsList.innerHTML = data.suggestions.slice(0, 5).map(s => `
+          <div class="suggestion-item">
+            <h4>${s.title}</h4>
+            <p>${s.description}</p>
+            <div class="task-item-footer">
+              <span class="priority-badge ${s.priority}">${s.priority}</span>
+              <button class="btn btn-primary btn-sm" onclick="approveSuggestion('${s.id}')">✓ Approve</button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // Completed
+      const completedList = document.getElementById('completed-list');
+      
+      if (data.completed.length === 0) {
+        completedList.innerHTML = '<div class="empty-state">No completed tasks yet</div>';
+      } else {
+        completedList.innerHTML = data.completed.slice(0, 10).map(task => `
+          <div class="completed-item">
+            <h4>${task.title}</h4>
+            <div class="time">Completed ${timeAgo(task.completedAt)}</div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Socket updates
+    socket.on('update', updateUI);
+
+    // Initial load
+    fetch('/api/status').then(r => r.json()).then(updateUI);
+
+    // Add task form
+    document.getElementById('add-task-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('task-title').value;
+      const description = document.getElementById('task-desc').value;
+      const priority = document.getElementById('task-priority').value;
+
+      await fetch('/api/queue/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task: { title, description, priority, source: 'dashboard' }})
+      });
+
+      document.getElementById('task-title').value = '';
+      document.getElementById('task-desc').value = '';
+      document.getElementById('task-priority').value = 'medium';
+    });
+
+    // Complete current task
+    document.getElementById('complete-btn').addEventListener('click', async () => {
+      await fetch('/api/task/complete', { method: 'POST' });
+    });
+
+    // Refresh suggestions
+    document.getElementById('refresh-suggestions').addEventListener('click', async () => {
+      await fetch('/api/suggestions/refresh', { method: 'POST' });
+    });
+
+    // Clear completed
+    document.getElementById('clear-completed').addEventListener('click', async () => {
+      await fetch('/api/completed/clear', { method: 'DELETE' });
+    });
+
+    // Approve suggestion
+    async function approveSuggestion(id) {
+      await fetch('/api/suggestions/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+    }
+
+    // Remove from queue
+    async function removeFromQueue(id) {
+      await fetch(`/api/queue/${id}`, { method: 'DELETE' });
+    }
+
+    // Update times every minute
+    setInterval(() => {
+      if (currentData) updateUI(currentData);
+    }, 60000);
+  </script>
+</body>
+</html>
